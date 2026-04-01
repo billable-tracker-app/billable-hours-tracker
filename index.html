@@ -165,6 +165,32 @@ svg text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 .settings-field+.settings-field{border-top:1px solid var(--border-sub)}
 .settings-field-label{font-size:14px;color:var(--t2)}
 .settings-field-hint{font-size:11px;color:var(--t5);margin-top:2px}
+/* Non-billable */
+.nb-toggle{display:flex;align-items:center;gap:10px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.nb-switch{position:relative;width:44px;height:24px;background:var(--border);border-radius:12px;
+  transition:background .2s;flex-shrink:0}
+.nb-switch::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;
+  background:#fff;border-radius:50%;transition:transform .2s}
+.nb-switch.on{background:var(--blue)}
+.nb-switch.on::after{transform:translateX(20px)}
+.nb-cat-row{display:flex;align-items:center;gap:8px;padding:8px 0}
+.nb-cat-row+.nb-cat-row{border-top:1px solid var(--border-sub)}
+.nb-cat-name{flex:1;background:var(--surface-input);border:1px solid var(--border);border-radius:6px;
+  color:var(--t2);padding:6px 8px;font-size:13px;transition:background .2s,color .2s}
+.nb-cat-cap{width:64px;background:var(--surface-input);border:1px solid var(--border);border-radius:6px;
+  color:var(--t2);padding:6px 8px;font-size:13px;text-align:right;transition:background .2s,color .2s}
+.nb-cat-del{background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:4px 6px;
+  border-radius:4px;line-height:1;-webkit-tap-highlight-color:transparent}
+.nb-cat-del:hover{background:var(--bdg-red-bg)}
+.nb-section{margin-top:16px}
+.nb-section-header{display:flex;align-items:center;justify-content:space-between;cursor:pointer;
+  -webkit-tap-highlight-color:transparent;padding:8px 0}
+.nb-section-header:hover{opacity:.8}
+.nb-arrow{font-size:12px;color:var(--t5);transition:transform .2s}
+.nb-arrow.open{transform:rotate(90deg)}
+.nb-body{overflow:hidden;transition:max-height .3s ease}
+.nb-cat-progress{height:4px;border-radius:2px;background:var(--border-sub);margin-top:4px;overflow:hidden}
+.nb-cat-progress-bar{height:100%;border-radius:2px;transition:width .3s}
 </style>
 </head>
 <body>
@@ -231,10 +257,11 @@ svg text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
     <span class="settings-label">hrs</span>
     <button class="btn" style="padding:6px 12px;font-size:12px" onclick="saveTarget()">Set</button>
     <button class="btn-ghost" onclick="openSettings()">⚙️ Settings</button>
-    <button class="btn-ghost" onclick="openHistory()">📈 History</button>
+    <button class="btn-ghost" onclick="openHistory()">📈 Past Years & Trends</button>
   </div>
 
   <div class="metrics" id="metrics"></div>
+  <div id="nb-qualifying-card" style="display:none;margin-bottom:16px"></div>
   <div class="section-title">Current Pacing</div>
   <div class="targets" id="current-pacing"></div>
   <div class="section-title">Required Pace (Remaining)</div>
@@ -256,6 +283,20 @@ svg text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
       </tr></thead>
       <tbody id="tbody"></tbody>
     </table>
+  </div>
+
+  <!-- Non-billable breakdown (collapsible) -->
+  <div id="nb-breakdown" class="nb-section" style="display:none">
+    <div class="nb-section-header" onclick="toggleNBBreakdown()">
+      <div class="section-title" style="margin:0;cursor:pointer">Non-Billable Hours</div>
+      <span class="nb-arrow" id="nb-arrow">▶</span>
+    </div>
+    <div class="nb-body" id="nb-body" style="max-height:0">
+      <div style="padding:4px 0 16px">
+        <div id="nb-summary" style="margin-bottom:10px"></div>
+        <div id="nb-entries"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -288,9 +329,56 @@ svg text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
           <div class="settings-field-hint">Used to scale pacing calculations</div>
         </div>
         <div style="display:flex;align-items:center;gap:6px">
-          <input type="number" id="workdays-input" value="260" min="100" max="366" step="1"
+          <input type="number" id="workdays-input" value="250" min="100" max="366" step="1"
             style="width:72px" inputmode="numeric"/>
           <button class="btn" style="padding:6px 12px;font-size:12px" onclick="saveWorkdays()">Set</button>
+        </div>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-group-title">Non-Billable Bonus Hours</div>
+      <div class="settings-field">
+        <div>
+          <div class="settings-field-label">Track non-billable hours</div>
+          <div class="settings-field-hint">Count qualifying hours toward your bonus</div>
+        </div>
+        <div class="nb-toggle" onclick="toggleNBEnabled()">
+          <div class="nb-switch" id="nb-switch"></div>
+        </div>
+      </div>
+      <div id="nb-settings" style="display:none">
+        <div class="settings-field">
+          <div>
+            <div class="settings-field-label">Qualifying Hours Target</div>
+            <div class="settings-field-hint">Total hours needed for bonus (billable + non-billable)</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="nb-qual-target" value="2000" min="0" max="9999" step="50"
+              style="width:84px" inputmode="numeric"/>
+            <button class="btn" style="padding:6px 12px;font-size:12px" onclick="saveNBSettings()">Set</button>
+          </div>
+        </div>
+        <div class="settings-field">
+          <div>
+            <div class="settings-field-label">Non-Billable Cap</div>
+            <div class="settings-field-hint">Max non-billable hours that count toward qualifying</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="nb-cap" value="300" min="0" max="9999" step="10"
+              style="width:84px" inputmode="numeric"/>
+            <button class="btn" style="padding:6px 12px;font-size:12px" onclick="saveNBSettings()">Set</button>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--border-sub);margin-top:8px;padding-top:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div class="settings-field-label" style="font-weight:600">Categories</div>
+            <div style="display:flex;gap:6px;font-size:11px;color:var(--t5)">
+              <span style="width:64px;text-align:right">Cap</span>
+              <span style="width:28px"></span>
+            </div>
+          </div>
+          <div id="nb-categories"></div>
+          <button class="btn-ghost" style="margin-top:8px;width:100%;text-align:center" onclick="addNBCategory()">＋ Add category</button>
         </div>
       </div>
     </div>
@@ -563,6 +651,14 @@ let TARGET = 1800;
 let TOTAL_WORKDAYS = null;
 let FY_START_MONTH = 10; // 0-indexed calendar month (10 = November default)
 
+// Non-billable state
+let NB_ENABLED = false;
+let NB_QUAL_TARGET = 2000;   // total qualifying hours for bonus
+let NB_CAP = 300;            // max non-billable that counts
+let NB_CATEGORIES = [];      // [{name:'Pro Bono',cap:0}, ...] cap 0 = no individual cap
+let NB_HOURS = {};           // {'Pro Bono': 45, ...}
+let NB_EXPANDED = false;
+
 const ALL_MONTHS = [
   {key:'jan',label:'January',cal:0},{key:'feb',label:'February',cal:1},
   {key:'mar',label:'March',cal:2},{key:'apr',label:'April',cal:3},
@@ -765,6 +861,9 @@ window.render = async function render(){
       <td style="text-align:right"><button class="btn" style="padding:5px 10px;font-size:12px" onclick="saveMonth('${m.key}')">Save</button></td>`;
     tbody.appendChild(tr);
   });
+
+  // Non-billable breakdown
+  renderNBBreakdown(total);
 };
 const render = window.render;
 
@@ -843,6 +942,150 @@ window.saveFYStart = async function(){
   showToast(); render();
 };
 
+// ── Non-billable ─────────────────────────────────────────────────────────
+async function loadNBConfig(){
+  try{
+    const r=await window.storage.get('nb_config');
+    if(r){ const c=JSON.parse(r.value); NB_ENABLED=!!c.enabled; NB_QUAL_TARGET=c.qualTarget||2000; NB_CAP=c.cap||300; NB_CATEGORIES=c.categories||[]; }
+  }catch(e){}
+}
+async function saveNBConfig(){
+  await window.storage.set('nb_config',JSON.stringify({enabled:NB_ENABLED,qualTarget:NB_QUAL_TARGET,cap:NB_CAP,categories:NB_CATEGORIES}));
+}
+async function loadNBHours(){
+  try{ const r=await window.storage.get('nb_hours_fy'+getFYEndYear()); if(r) NB_HOURS=JSON.parse(r.value); else NB_HOURS={}; }catch(e){ NB_HOURS={}; }
+}
+async function saveNBHours(){
+  await window.storage.set('nb_hours_fy'+getFYEndYear(),JSON.stringify(NB_HOURS));
+}
+
+window.toggleNBEnabled = async function(){
+  NB_ENABLED=!NB_ENABLED;
+  document.getElementById('nb-switch').classList.toggle('on',NB_ENABLED);
+  document.getElementById('nb-settings').style.display=NB_ENABLED?'':'none';
+  await saveNBConfig(); render();
+};
+
+window.saveNBSettings = async function(){
+  NB_QUAL_TARGET=parseInt(document.getElementById('nb-qual-target').value)||2000;
+  NB_CAP=parseInt(document.getElementById('nb-cap').value)||300;
+  await saveNBConfig(); showToast(); render();
+};
+
+window.addNBCategory = async function(){
+  NB_CATEGORIES.push({name:'',cap:0});
+  renderNBCategories();
+};
+
+window.removeNBCategory = async function(i){
+  const name=NB_CATEGORIES[i].name;
+  NB_CATEGORIES.splice(i,1);
+  if(name && NB_HOURS[name]!==undefined) delete NB_HOURS[name];
+  await saveNBConfig(); await saveNBHours();
+  renderNBCategories(); render();
+};
+
+window.saveNBCategories = async function(){
+  const rows=document.querySelectorAll('#nb-categories .nb-cat-row');
+  const oldNames=NB_CATEGORIES.map(c=>c.name);
+  NB_CATEGORIES=[];
+  rows.forEach((row,i)=>{
+    const name=row.querySelector('.nb-cat-name').value.trim();
+    const cap=parseInt(row.querySelector('.nb-cat-cap').value)||0;
+    if(name){ NB_CATEGORIES.push({name,cap}); }
+    // Rename hours if name changed
+    if(oldNames[i] && oldNames[i]!==name && NB_HOURS[oldNames[i]]!==undefined){
+      NB_HOURS[name]=NB_HOURS[oldNames[i]]; delete NB_HOURS[oldNames[i]];
+    }
+  });
+  await saveNBConfig(); await saveNBHours(); showToast(); render();
+};
+
+function renderNBCategories(){
+  const el=document.getElementById('nb-categories'); if(!el) return;
+  el.innerHTML=NB_CATEGORIES.map((c,i)=>`
+    <div class="nb-cat-row">
+      <input class="nb-cat-name" value="${c.name}" placeholder="Category name" onchange="saveNBCategories()"/>
+      <input class="nb-cat-cap" type="number" value="${c.cap||''}" placeholder="∞" min="0" inputmode="numeric" onchange="saveNBCategories()"/>
+      <button class="nb-cat-del" onclick="removeNBCategory(${i})" title="Remove">✕</button>
+    </div>`).join('');
+}
+
+window.toggleNBBreakdown = function(){
+  NB_EXPANDED=!NB_EXPANDED;
+  document.getElementById('nb-arrow').classList.toggle('open',NB_EXPANDED);
+  document.getElementById('nb-body').style.maxHeight=NB_EXPANDED?'2000px':'0';
+};
+
+window.saveNBHourEntry = async function(name){
+  const el=document.getElementById('nb-h-'+CSS.escape(name));
+  if(!el) return;
+  NB_HOURS[name]=parseFloat(el.value)||0;
+  await saveNBHours(); showToast(); render();
+};
+
+function renderNBBreakdown(billableTotal){
+  if(!NB_ENABLED){ document.getElementById('nb-breakdown').style.display='none'; document.getElementById('nb-qualifying-card').style.display='none'; return; }
+  document.getElementById('nb-breakdown').style.display='';
+
+  // Compute non-billable totals
+  let nbTotal=0;
+  NB_CATEGORIES.forEach(c=>{ nbTotal+=Math.min(parseFloat(NB_HOURS[c.name]||0), c.cap>0?c.cap:Infinity); });
+  const nbCounted=Math.min(nbTotal,NB_CAP);
+  const qualTotal=billableTotal+nbCounted;
+  const qualPct=Math.min(100,(qualTotal/NB_QUAL_TARGET)*100);
+
+  // Qualifying total card
+  const qc=qualPct>=100?'green':qualPct>=85?'yellow':'red';
+  document.getElementById('nb-qualifying-card').style.display='';
+  document.getElementById('nb-qualifying-card').innerHTML=`
+    <div class="card">
+      <div class="card-label">Qualifying Total</div>
+      <div class="card-val ${qc}">${fmt(qualTotal)}</div>
+      <div class="card-sub">${fmt(billableTotal)} billable + ${fmt(nbCounted)} non-billable · of ${NB_QUAL_TARGET} target</div>
+      <div class="progress-wrap"><div class="progress-bar" style="width:${qualPct}%;background:${qualPct>=100?'var(--green)':qualPct>=85?'var(--yellow)':'var(--red)'}"></div></div>
+    </div>`;
+
+  // Summary line
+  document.getElementById('nb-summary').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px">
+      <span style="color:var(--t3)">${fmt(nbCounted)} of ${NB_CAP} cap used</span>
+      <span style="color:var(--t5)">${NB_CATEGORIES.length} categories</span>
+    </div>`;
+
+  // Category entries
+  let html='';
+  NB_CATEGORIES.forEach(c=>{
+    const hrs=parseFloat(NB_HOURS[c.name]||0);
+    const cap=c.cap>0?c.cap:NB_CAP;
+    const pct=cap>0?Math.min(100,(hrs/cap)*100):0;
+    const col=c.cap>0&&hrs>=c.cap?'var(--green)':hrs>0?'var(--blue)':'var(--border)';
+    const capLabel=c.cap>0?`/ ${c.cap} cap`:'no cap';
+    html+=`
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border-sub)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.name}</div>
+          <div style="font-size:11px;color:var(--t5)">${fmt(hrs)}h ${capLabel}</div>
+          <div class="nb-cat-progress"><div class="nb-cat-progress-bar" style="width:${pct}%;background:${col}"></div></div>
+        </div>
+        <input type="number" id="nb-h-${CSS.escape(c.name)}" value="${hrs||''}" placeholder="0" step="0.5"
+          style="width:72px;background:var(--surface-input);border:1px solid var(--border);border-radius:6px;
+          color:var(--t2);padding:6px 8px;font-size:14px;text-align:right" inputmode="decimal"/>
+        <button class="btn" style="padding:5px 10px;font-size:12px" onclick="saveNBHourEntry('${c.name.replace(/'/g,"\\'")}')">Save</button>
+      </div>`;
+  });
+  if(!NB_CATEGORIES.length) html=`<div style="padding:12px 0;font-size:13px;color:var(--t5);text-align:center">No categories configured. Add them in Settings.</div>`;
+  document.getElementById('nb-entries').innerHTML=html;
+}
+
+function initNBSettingsUI(){
+  document.getElementById('nb-switch').classList.toggle('on',NB_ENABLED);
+  document.getElementById('nb-settings').style.display=NB_ENABLED?'':'none';
+  document.getElementById('nb-qual-target').value=NB_QUAL_TARGET;
+  document.getElementById('nb-cap').value=NB_CAP;
+  renderNBCategories();
+}
+
 async function init(){
   try{ const r=await window.storage.get('billable_theme'); applyTheme(r?r.value:'light'); }catch(e){ applyTheme('light'); }
   // Load FY start month
@@ -852,6 +1095,8 @@ async function init(){
   TARGET=await loadTarget();
   document.getElementById('target-input').value=TARGET;
   try{ const r=await window.storage.get('billable_workdays'); const wv=r?parseInt(r.value)||0:0; if(wv>0){ TOTAL_WORKDAYS=wv; document.getElementById('workdays-input').value=wv; } }catch(e){}
+  // Load non-billable config and hours
+  await loadNBConfig(); await loadNBHours(); initNBSettingsUI();
   render();
 }
 </script>
