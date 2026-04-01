@@ -759,7 +759,7 @@ window.render = async function render(){
 
   document.getElementById('metrics').innerHTML=`
     <div class="card">
-      <div class="card-label">Hours Logged</div>
+      <div class="card-label">Billable Hours Logged</div>
       <div class="card-val ${pct>=100?'green':pct>=50?'yellow':'red'}">${fmt(total)}</div>
       <div class="card-sub">of ${TARGET} target</div>
       <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;background:${pct>=100?'var(--green)':pct>=50?'var(--yellow)':'var(--red)'}"></div></div>
