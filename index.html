@@ -369,6 +369,17 @@ svg text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
             <button class="btn" style="padding:6px 12px;font-size:12px" onclick="saveNBSettings()">Set</button>
           </div>
         </div>
+        <div class="settings-field">
+          <div>
+            <div class="settings-field-label">Billable Minimum</div>
+            <div class="settings-field-hint">Billable hours required before non-billable counts (0 = no minimum)</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="number" id="nb-billable-min" value="1800" min="0" max="9999" step="50"
+              style="width:84px" inputmode="numeric"/>
+            <button class="btn" style="padding:6px 12px;font-size:12px" onclick="saveNBSettings()">Set</button>
+          </div>
+        </div>
         <div style="border-top:1px solid var(--border-sub);margin-top:8px;padding-top:12px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
             <div class="settings-field-label" style="font-weight:600">Categories</div>
@@ -655,6 +666,7 @@ let FY_START_MONTH = 10; // 0-indexed calendar month (10 = November default)
 let NB_ENABLED = false;
 let NB_QUAL_TARGET = 2000;   // total qualifying hours for bonus
 let NB_CAP = 300;            // max non-billable that counts
+let NB_BILLABLE_MIN = 1800;  // billable minimum before non-billable counts (0 = no minimum)
 let NB_CATEGORIES = [];      // [{name:'Pro Bono',cap:0}, ...] cap 0 = no individual cap
 let NB_HOURS = {};           // {'Pro Bono': 45, ...}
 let NB_EXPANDED = false;
@@ -950,11 +962,11 @@ window.saveFYStart = async function(){
 async function loadNBConfig(){
   try{
     const r=await window.storage.get('nb_config');
-    if(r){ const c=JSON.parse(r.value); NB_ENABLED=!!c.enabled; NB_QUAL_TARGET=c.qualTarget||2000; NB_CAP=c.cap||300; NB_CATEGORIES=c.categories||[]; }
+    if(r){ const c=JSON.parse(r.value); NB_ENABLED=!!c.enabled; NB_QUAL_TARGET=c.qualTarget||2000; NB_CAP=c.cap||300; NB_BILLABLE_MIN=c.billableMin!==undefined?c.billableMin:1800; NB_CATEGORIES=c.categories||[]; }
   }catch(e){}
 }
 async function saveNBConfig(){
-  await window.storage.set('nb_config',JSON.stringify({enabled:NB_ENABLED,qualTarget:NB_QUAL_TARGET,cap:NB_CAP,categories:NB_CATEGORIES}));
+  await window.storage.set('nb_config',JSON.stringify({enabled:NB_ENABLED,qualTarget:NB_QUAL_TARGET,cap:NB_CAP,billableMin:NB_BILLABLE_MIN,categories:NB_CATEGORIES}));
 }
 async function loadNBHours(){
   try{ const r=await window.storage.get('nb_hours_fy'+getFYEndYear()); if(r) NB_HOURS=JSON.parse(r.value); else NB_HOURS={}; }catch(e){ NB_HOURS={}; }
@@ -973,6 +985,7 @@ window.toggleNBEnabled = async function(){
 window.saveNBSettings = async function(){
   NB_QUAL_TARGET=parseInt(document.getElementById('nb-qual-target').value)||2000;
   NB_CAP=parseInt(document.getElementById('nb-cap').value)||300;
+  NB_BILLABLE_MIN=parseInt(document.getElementById('nb-billable-min').value)||0;
   await saveNBConfig(); showToast(); render();
 };
 
@@ -1035,19 +1048,23 @@ function renderNBBreakdown(billableTotal){
   // Compute non-billable totals
   let nbTotal=0;
   NB_CATEGORIES.forEach(c=>{ nbTotal+=Math.min(parseFloat(NB_HOURS[c.name]||0), c.cap>0?c.cap:Infinity); });
-  const nbCounted=Math.min(nbTotal,NB_CAP);
+  const metBillableMin=NB_BILLABLE_MIN<=0||billableTotal>=NB_BILLABLE_MIN;
+  const nbCounted=metBillableMin?Math.min(nbTotal,NB_CAP):0;
   const qualTotal=billableTotal+nbCounted;
   const qualPct=Math.min(100,(qualTotal/NB_QUAL_TARGET)*100);
+  const billableShort=NB_BILLABLE_MIN>0?Math.max(0,NB_BILLABLE_MIN-billableTotal):0;
 
   // Qualifying total card
   const qc=qualPct>=100?'green':qualPct>=85?'yellow':'red';
   document.getElementById('nb-qualifying-card').style.display='';
+  const minNote=!metBillableMin?`<div style="font-size:11px;color:var(--red);margin-top:4px">Need ${fmt(billableShort)} more billable hours before non-billable counts</div>`:'';
   document.getElementById('nb-qualifying-card').innerHTML=`
     <div class="card">
       <div class="card-label">Qualifying Total</div>
       <div class="card-val ${qc}">${fmt(qualTotal)}</div>
       <div class="card-sub">${fmt(billableTotal)} billable + ${fmt(nbCounted)} non-billable · of ${NB_QUAL_TARGET} target</div>
       <div class="progress-wrap"><div class="progress-bar" style="width:${qualPct}%;background:${qualPct>=100?'var(--green)':qualPct>=85?'var(--yellow)':'var(--red)'}"></div></div>
+      ${minNote}
     </div>`;
 
   // Summary line
@@ -1087,6 +1104,7 @@ function initNBSettingsUI(){
   document.getElementById('nb-settings').style.display=NB_ENABLED?'':'none';
   document.getElementById('nb-qual-target').value=NB_QUAL_TARGET;
   document.getElementById('nb-cap').value=NB_CAP;
+  document.getElementById('nb-billable-min').value=NB_BILLABLE_MIN;
   renderNBCategories();
 }
 
