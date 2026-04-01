@@ -1,5 +1,5 @@
 // Service Worker — caches all assets for fully offline use
-const CACHE = 'billable-tracker-v3';
+const CACHE = 'billable-tracker-v4';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

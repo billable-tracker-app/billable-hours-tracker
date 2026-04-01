@@ -480,7 +480,7 @@ function setupListener(uid) {
 
     if (user) {
       signInScreen.style.display = 'none';
-      appEl.style.display = '';
+      appEl.style.display = 'block';
       document.getElementById('user-avatar').src = user.photoURL || '';
       document.getElementById('user-name').textContent =
         user.displayName?.split(' ')[0] || user.email;
