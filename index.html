@@ -229,6 +229,14 @@ svg text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
   <div class="metrics" id="metrics"></div>
   <div class="section-title">Pace Targets</div>
   <div class="targets" id="targets"></div>
+  <div id="weekend-sim" style="margin-top:10px;margin-bottom:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <span class="settings-label">What if I also work</span>
+    <input type="number" id="weekend-hrs" value="" placeholder="0" min="0" max="24" step="0.5"
+      style="width:64px" inputmode="decimal"/>
+    <span class="settings-label">hrs/weekend day?</span>
+    <button class="btn" style="padding:6px 12px;font-size:12px" onclick="render()">Update</button>
+  </div>
+  <div class="targets" id="weekend-targets" style="display:none"></div>
   <div class="section-title" style="margin-top:16px">Monthly Log</div>
   <div class="table-wrap">
     <table>
@@ -523,6 +531,16 @@ function getWorkdays(y,m){ const d=new Date(y,m+1,0).getDate(); let c=0; for(let
 function getWorkdaysRemaining(y,m,from){ const d=new Date(y,m+1,0).getDate(); let c=0; for(let i=from;i<=d;i++){ const w=new Date(y,m,i).getDay(); if(w&&w<6)c++; } return c; }
 function iterateFYMonths(cb){ const n=new Date(),fy=n.getMonth()>=10?n.getFullYear()+1:n.getFullYear(); const cm={nov:10,dec:11,jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9}; MONTHS.forEach((m,i)=>{ const mo=cm[m.key],cy=mo>=10?fy-1:fy; cb(m,i,cy,mo); }); }
 function getTotalFYWorkdays(){ let t=0; iterateFYMonths((_,__,cy,cm)=>{ t+=getWorkdays(cy,cm); }); return t; }
+function getRemainingFYWeekendDays(){
+  const n=new Date(),ci=getFYMonthIndex(CAL_TO_KEY[n.getMonth()]); let t=0;
+  iterateFYMonths((_,i,cy,cm)=>{
+    if(i<ci) return;
+    const daysInMonth=new Date(cy,cm+1,0).getDate();
+    const startDay=i===ci?n.getDate():1;
+    for(let d=startDay;d<=daysInMonth;d++){ const w=new Date(cy,cm,d).getDay(); if(w===0||w===6) t++; }
+  });
+  return t;
+}
 function getRemainingFYWorkdays(){
   const n=new Date(),ci=getFYMonthIndex(CAL_TO_KEY[n.getMonth()]); let raw=0;
   iterateFYMonths((_,i,cy,cm)=>{ if(i<ci) return; raw+=i===ci?getWorkdaysRemaining(cy,cm,n.getDate()):getWorkdays(cy,cm); });
@@ -592,6 +610,36 @@ window.render = async function render(){
     <div class="tcard"><div class="tcard-label">Monthly Avg</div>
       <div class="tcard-val" style="color:${mc}">${fmt(maN)}h</div>
       <div class="tcard-sub">${ml} mo left</div></div>`;
+
+  // ── Weekend "what if" simulation ──
+  const weInput=document.getElementById('weekend-hrs');
+  const wePanel=document.getElementById('weekend-targets');
+  const weHrs=parseFloat(weInput?.value)||0;
+  if(weHrs>0){
+    const weDays=getRemainingFYWeekendDays();
+    const weTotal=weDays*weHrs;
+    const adjRemaining=Math.max(0,remaining-weTotal);
+    const adjNpd=rd>0?adjRemaining/rd:0;
+    const adjWaN=wl>0?adjRemaining/wl:0;
+    const adjMaN=ml>0?adjRemaining/ml:0;
+    const adc=adjNpd<=8?'var(--green)':adjNpd<=10?'var(--yellow)':'var(--red)';
+    const awc=adjWaN<=40?'var(--green)':adjWaN<=50?'var(--yellow)':'var(--red)';
+    const amc=adjMaN<=175?'var(--green)':adjMaN<=220?'var(--yellow)':'var(--red)';
+    wePanel.style.display='';
+    wePanel.innerHTML=`
+      <div class="tcard" style="border:1px solid var(--border)"><div class="tcard-label">Adj. Daily</div>
+        <div class="tcard-val" style="color:${adc}">${fmt(adjNpd)}h</div>
+        <div class="tcard-sub">weekdays only</div></div>
+      <div class="tcard" style="border:1px solid var(--border)"><div class="tcard-label">Adj. Weekly</div>
+        <div class="tcard-val" style="color:${awc}">${fmt(adjWaN)}h</div>
+        <div class="tcard-sub">+${fmt(weHrs)}h/wknd day</div></div>
+      <div class="tcard" style="border:1px solid var(--border)"><div class="tcard-label">Weekend Hrs</div>
+        <div class="tcard-val" style="color:var(--blue)">${fmt(weTotal)}h</div>
+        <div class="tcard-sub">${weDays} days left</div></div>`;
+  } else {
+    wePanel.style.display='none';
+    wePanel.innerHTML='';
+  }
 
   const tbody=document.getElementById('tbody'); tbody.innerHTML='';
   MONTHS.forEach((m,i)=>{
