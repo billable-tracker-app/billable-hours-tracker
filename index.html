@@ -844,13 +844,17 @@ window.render = async function render(){
     wePanel.innerHTML='';
   }
 
+  // Compute daily target based on user's settings for status badges
+  const totalWD=TOTAL_WORKDAYS||getTotalFYWorkdays();
+  const dailyTarget=totalWD>0?TARGET/totalWD:8;
+
   const tbody=document.getElementById('tbody'); tbody.innerHTML='';
   getMonths().forEach((m,i)=>{
     const d=data[m.key]||{}, isCur=i===ci;
     const hrs=parseFloat(d.hours||0), days=parseInt(d.days||0), avg=days>0?fmt(hrs/days):'—';
     let badge='';
     if(hrs===0) badge=`<span class="badge badge-gray">—</span>`;
-    else if(days>0){ const a=hrs/days; badge=a>=10?`<span class="badge badge-green">Above Pace</span>`:a>=8?`<span class="badge badge-green">On Pace</span>`:a>=6?`<span class="badge badge-yellow">Slightly Behind</span>`:`<span class="badge badge-red">Behind Pace</span>`; }
+    else if(days>0){ const a=hrs/days; badge=a>=dailyTarget*1.25?`<span class="badge badge-green">Above Pace</span>`:a>=dailyTarget?`<span class="badge badge-green">On Pace</span>`:a>=dailyTarget*0.75?`<span class="badge badge-yellow">Slightly Behind</span>`:`<span class="badge badge-red">Behind Pace</span>`; }
     const tr=document.createElement('tr');
     tr.innerHTML=`
       <td style="color:${isCur?'var(--blue)':'inherit'};font-weight:${isCur?'600':'400'}">${m.label.slice(0,3)}${isCur?' ◀':''}</td>
