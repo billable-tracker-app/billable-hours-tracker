@@ -162,6 +162,24 @@ svg text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
     <div class="signin-icon">⚖️</div>
     <div class="signin-title">Billable Hours Tracker</div>
     <div class="signin-sub">Sign in to sync your hours across all your devices automatically.</div>
+    <!-- Email / Password -->
+    <form id="email-form" onsubmit="return handleEmailSignIn(event)" autocomplete="on" style="display:flex;flex-direction:column;gap:10px;margin-bottom:0">
+      <input type="email" id="email-input" placeholder="Email" required autocomplete="email"
+        style="padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface-input);color:var(--t1);font-size:15px;outline:none"/>
+      <input type="password" id="password-input" placeholder="Password" required autocomplete="current-password" minlength="6"
+        style="padding:11px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface-input);color:var(--t1);font-size:15px;outline:none"/>
+      <button type="submit" class="google-btn" id="email-btn" style="margin:0">Sign in</button>
+      <div style="font-size:12px;color:var(--t5)">No account? <a href="#" id="toggle-signup" onclick="toggleSignUp(event)" style="color:var(--blue);text-decoration:none">Create one</a></div>
+    </form>
+
+    <!-- Divider -->
+    <div style="display:flex;align-items:center;gap:12px;margin:16px 0">
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <span style="font-size:12px;color:var(--t5)">or</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+
+    <!-- Google -->
     <button class="google-btn" id="google-btn" onclick="handleSignIn()">
       <svg class="google-logo" viewBox="0 0 48 48">
         <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
@@ -259,7 +277,8 @@ svg text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 <script type="module">
 import { initializeApp }            from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect,
-         getRedirectResult, signOut, onAuthStateChanged }
+         getRedirectResult, signOut, onAuthStateChanged,
+         signInWithEmailAndPassword, createUserWithEmailAndPassword }
                                     from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
          doc, getDoc, setDoc, onSnapshot }
@@ -360,6 +379,50 @@ window.handleSignIn = async () => {
       setSignInError(e.message || e.code || 'Sign-in failed. Please try again.');
     }
   }
+};
+
+// ── Email / password sign-in ──────────────────────────────────────────────
+let _isSignUp = false;
+window.toggleSignUp = (e) => {
+  e.preventDefault();
+  _isSignUp = !_isSignUp;
+  document.getElementById('email-btn').textContent = _isSignUp ? 'Create account' : 'Sign in';
+  document.getElementById('toggle-signup').textContent = _isSignUp ? 'Sign in instead' : 'Create one';
+  setSignInError('');
+};
+
+window.handleEmailSignIn = async (e) => {
+  e.preventDefault();
+  setSignInError('');
+  const email = document.getElementById('email-input').value.trim();
+  const pass  = document.getElementById('password-input').value;
+  const btn   = document.getElementById('email-btn');
+  const orig  = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = _isSignUp ? 'Creating account…' : 'Signing in…';
+  try {
+    if (_isSignUp) {
+      await createUserWithEmailAndPassword(auth, email, pass);
+    } else {
+      await signInWithEmailAndPassword(auth, email, pass);
+    }
+    // onAuthStateChanged handles the rest
+  } catch (e) {
+    console.error('Email sign-in error', e);
+    btn.disabled = false;
+    btn.textContent = orig;
+    const msgs = {
+      'auth/user-not-found': 'No account with that email. Tap "Create one" to sign up.',
+      'auth/invalid-credential': 'Incorrect email or password.',
+      'auth/wrong-password': 'Incorrect password.',
+      'auth/email-already-in-use': 'An account with that email already exists. Try signing in.',
+      'auth/weak-password': 'Password must be at least 6 characters.',
+      'auth/invalid-email': 'Please enter a valid email address.',
+      'auth/too-many-requests': 'Too many attempts. Please wait a moment and try again.',
+    };
+    setSignInError(msgs[e.code] || e.message || 'Sign-in failed.');
+  }
+  return false;
 };
 
 window.handleSignOut = async () => {
