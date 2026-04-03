@@ -760,14 +760,11 @@ window.render = async function render(){
   const rd=getRemainingFYWorkdays(), npd=rd>0?remaining/rd:0;
   const elapsed=getElapsedFYWorkdays();
 
-  // Current pacing: months with data, current monthly avg, EOY projection
-  let monthsWithData=0; MONTHS.forEach(m=>{ if(data[m.key]&&parseFloat(data[m.key].hours||0)>0) monthsWithData++; });
-  const curMonthlyAvg=monthsWithData>0?total/monthsWithData:0;
-  const monthsLeft=Math.max(0,12-ci-(ci<12?1:0)); // remaining full months after current
-  // Projection: logged so far + (current monthly avg × months remaining including partial current)
-  const mlForProj=Math.max(0,12-(monthsWithData));
-  const eoyProjection=monthsWithData>0?total+curMonthlyAvg*mlForProj:0;
+  // Current pacing: all derived from workdays elapsed (not raw month count)
   const curDailyAvg=elapsed>0?total/elapsed:0;
+  const totalWDForPace=TOTAL_WORKDAYS||getTotalFYWorkdays();
+  const curMonthlyAvg=elapsed>0?curDailyAvg*(totalWDForPace/12):0;
+  const eoyProjection=elapsed>0?curDailyAvg*totalWDForPace:0;
 
   document.getElementById('metrics').innerHTML=`
     <div class="card">
@@ -796,13 +793,13 @@ window.render = async function render(){
   const projColor=eoyProjection>=TARGET?'var(--green)':eoyProjection>=TARGET*0.85?'var(--yellow)':'var(--red)';
   const cmaColor=curMonthlyAvg>=TARGET/12?'var(--green)':curMonthlyAvg>=TARGET/14?'var(--yellow)':'var(--red)';
   const cdaColor=curDailyAvg>=8?'var(--green)':curDailyAvg>=6?'var(--yellow)':'var(--red)';
-  document.getElementById('current-pacing').innerHTML=monthsWithData>0?`
+  document.getElementById('current-pacing').innerHTML=elapsed>0?`
     <div class="tcard"><div class="tcard-label">Current Daily Avg</div>
       <div class="tcard-val" style="color:${cdaColor}">${fmt(curDailyAvg)}h</div>
       <div class="tcard-sub">${elapsed} workdays elapsed</div></div>
     <div class="tcard"><div class="tcard-label">Current Monthly Avg</div>
       <div class="tcard-val" style="color:${cmaColor}">${fmt(curMonthlyAvg)}h</div>
-      <div class="tcard-sub">${monthsWithData} mo with data</div></div>
+      <div class="tcard-sub">based on daily pace</div></div>
     <div class="tcard"><div class="tcard-label">On Pace For</div>
       <div class="tcard-val" style="color:${projColor}">${fmt(eoyProjection)}h</div>
       <div class="tcard-sub">projected EOY total</div></div>`
