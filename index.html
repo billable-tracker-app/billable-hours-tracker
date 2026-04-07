@@ -1061,32 +1061,32 @@ function renderNBBreakdown(billableTotal){
   if(!NB_ENABLED){ document.getElementById('nb-breakdown').style.display='none'; document.getElementById('nb-qualifying-card').style.display='none'; return; }
   document.getElementById('nb-breakdown').style.display='';
 
-  // Compute non-billable totals
+  // Compute non-billable totals — always show tracked hours, even before billable min is met
   let nbTotal=0;
   NB_CATEGORIES.forEach(c=>{ nbTotal+=Math.min(parseFloat(NB_HOURS[c.name]||0), c.cap>0?c.cap:Infinity); });
+  const nbCapped=Math.min(nbTotal,NB_CAP); // hours that count toward cap (always tracked)
   const metBillableMin=NB_BILLABLE_MIN<=0||billableTotal>=NB_BILLABLE_MIN;
-  const nbCounted=metBillableMin?Math.min(nbTotal,NB_CAP):0;
-  const qualTotal=billableTotal+nbCounted;
+  const qualTotal=billableTotal+nbCapped;
   const qualPct=Math.min(100,(qualTotal/NB_QUAL_TARGET)*100);
   const billableShort=NB_BILLABLE_MIN>0?Math.max(0,NB_BILLABLE_MIN-billableTotal):0;
 
-  // Qualifying total card
+  // Qualifying total card — always includes non-billable, with note if threshold not yet met
   const qc=qualPct>=100?'green':qualPct>=85?'yellow':'red';
   document.getElementById('nb-qualifying-card').style.display='';
-  const minNote=!metBillableMin?`<div style="font-size:11px;color:var(--red);margin-top:4px">Need ${fmt(billableShort)} more billable hours before non-billable counts</div>`:'';
+  const minNote=!metBillableMin?`<div style="font-size:11px;color:var(--yellow);margin-top:4px;line-height:1.4">⚠️ ${fmt(billableShort)} more billable hours needed (${fmt(NB_BILLABLE_MIN)} min) before ${fmt(nbCapped)} non-billable hours count toward bonus</div>`:'';
   document.getElementById('nb-qualifying-card').innerHTML=`
     <div class="card">
       <div class="card-label">Qualifying Total</div>
       <div class="card-val ${qc}">${fmt(qualTotal)}</div>
-      <div class="card-sub">${fmt(billableTotal)} billable + ${fmt(nbCounted)} non-billable · of ${NB_QUAL_TARGET} target</div>
-      <div class="progress-wrap"><div class="progress-bar" style="width:${qualPct}%;background:${qualPct>=100?'var(--green)':qualPct>=85?'var(--yellow)':'var(--red)'}"></div></div>
+      <div class="card-sub">${fmt(billableTotal)} billable + ${fmt(nbCapped)} non-billable · of ${NB_QUAL_TARGET} target${!metBillableMin?' (pending)':''}</div>
+      <div class="progress-wrap"><div class="progress-bar" style="width:${qualPct}%;background:${qualPct>=100?'var(--green)':qualPct>=85?'var(--yellow)':'var(--red)'}${!metBillableMin?';opacity:0.5':''}"></div></div>
       ${minNote}
     </div>`;
 
-  // Summary line
+  // Summary line — always shows tracked non-billable toward cap
   document.getElementById('nb-summary').innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;font-size:13px">
-      <span style="color:var(--t3)">${fmt(nbCounted)} of ${NB_CAP} cap used</span>
+      <span style="color:var(--t3)">${fmt(nbCapped)} of ${NB_CAP} cap used</span>
       <span style="color:var(--t5)">${NB_CATEGORIES.length} categories</span>
     </div>`;
 
