@@ -279,7 +279,7 @@ svg text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
     <table>
       <thead><tr>
         <th>Month</th><th class="r">Hours</th><th class="r">Workdays</th>
-        <th class="r">Avg/Day</th><th class="r">Status</th><th></th>
+        <th class="r">Avg/Day</th><th class="r">Est. Month</th><th class="r">Status</th><th></th>
       </tr></thead>
       <tbody id="tbody"></tbody>
     </table>
@@ -858,9 +858,22 @@ window.render = async function render(){
   const dailyTarget=totalWD>0?TARGET/totalWD:8;
 
   const tbody=document.getElementById('tbody'); tbody.innerHTML='';
+  const nowDate=new Date(), todayDay=nowDate.getDate();
   getMonths().forEach((m,i)=>{
     const d=data[m.key]||{}, isCur=i===ci;
     const hrs=parseFloat(d.hours||0), days=parseInt(d.days||0), avg=days>0?fmt(hrs/days):'—';
+    // Estimate full month: for current month, prorate based on workdays elapsed vs total
+    let estMonth='—';
+    if(hrs>0){
+      const calMo=m.cal, calYr=calMo>=FY_START_MONTH?getFYEndYear()-1:getFYEndYear();
+      const totalMoWD=getWorkdays(calYr,calMo);
+      if(isCur){
+        const elapsedMoWD=totalMoWD-getWorkdaysRemaining(calYr,calMo,todayDay);
+        estMonth=elapsedMoWD>0?fmt(hrs*(totalMoWD/elapsedMoWD))+'*':fmt(hrs);
+      } else {
+        estMonth=fmt(hrs);
+      }
+    }
     let badge='';
     if(hrs===0) badge=`<span class="badge badge-gray">—</span>`;
     else if(days>0){ const a=hrs/days; badge=a>=dailyTarget*1.25?`<span class="badge badge-green">Above Pace</span>`:a>=dailyTarget?`<span class="badge badge-green">On Pace</span>`:a>=dailyTarget*0.75?`<span class="badge badge-yellow">Slightly Behind</span>`:`<span class="badge badge-red">Behind Pace</span>`; }
@@ -870,6 +883,7 @@ window.render = async function render(){
       <td class="r"><input type="number" id="h-${m.key}" value="${d.hours||''}" placeholder="0" step="0.1" inputmode="decimal"/></td>
       <td class="r"><input type="number" id="d-${m.key}" value="${d.days||''}" placeholder="0" style="width:52px" inputmode="numeric"/></td>
       <td class="r">${avg}</td>
+      <td class="r" style="color:${isCur&&hrs>0?'var(--blue)':'var(--t3)'}">${estMonth}</td>
       <td class="r">${badge}</td>
       <td style="text-align:right"><button class="btn" style="padding:5px 10px;font-size:12px" onclick="saveMonth('${m.key}')">Save</button></td>`;
     tbody.appendChild(tr);
