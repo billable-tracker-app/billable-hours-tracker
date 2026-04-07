@@ -868,8 +868,9 @@ window.render = async function render(){
       const calMo=m.cal, calYr=calMo>=FY_START_MONTH?getFYEndYear()-1:getFYEndYear();
       const totalMoWD=getWorkdays(calYr,calMo);
       if(isCur){
-        const elapsedMoWD=totalMoWD-getWorkdaysRemaining(calYr,calMo,todayDay);
-        estMonth=elapsedMoWD>0?fmt(hrs*(totalMoWD/elapsedMoWD))+'*':fmt(hrs);
+        // Use user's entered workdays if available, otherwise fall back to calendar elapsed
+        const workedDays=days>0?days:(totalMoWD-getWorkdaysRemaining(calYr,calMo,todayDay));
+        estMonth=workedDays>0?fmt((hrs/workedDays)*totalMoWD)+'*':fmt(hrs);
       } else {
         estMonth=fmt(hrs);
       }
