@@ -870,7 +870,7 @@ window.render = async function render(){
       if(isCur){
         // Use user's entered workdays if available, otherwise fall back to calendar elapsed
         const workedDays=days>0?days:(totalMoWD-getWorkdaysRemaining(calYr,calMo,todayDay));
-        estMonth=workedDays>0?fmt((hrs/workedDays)*totalMoWD)+'*':fmt(hrs);
+        estMonth=workedDays>0?fmt((hrs/workedDays)*totalMoWD)+' <span style="font-size:10px;color:var(--t5)">(est.)</span>':fmt(hrs);
       } else {
         estMonth=fmt(hrs);
       }
